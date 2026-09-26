@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aegis-sql"
+version = "0.1.0"
+description = "Autonomous Semantic Copilot and Text-to-SQL Engine with Graph-Based Schema Linking and AST Validation"
+authors = [
+    { name = "Siddanagouda Patil" }
+]
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "duckdb>=0.10.0",
+    "networkx>=3.0",
+    "sqlglot>=23.0.0",
+    "langgraph>=0.0.30",
+    "pydantic>=2.5.0",
+    "pyyaml>=6.0",
+    "rich>=13.0.0",
+    "click>=8.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=4.1.0",
+]
+
+[project.scripts]
+aegis-sql = "main:cli"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*", "data*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --strict-markers"
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]

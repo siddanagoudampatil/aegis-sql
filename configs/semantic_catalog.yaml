@@ -1,0 +1,250 @@
+version: "1.0.0"
+catalog_name: "aegis_saas_warehouse"
+description: "Semantic catalog governing metrics, dimensions, and relational entities for the B2B SaaS warehouse."
+
+tables:
+  customers:
+    description: "Organization profiles and account lifecycle state."
+    primary_key: "id"
+    columns:
+      id: "Unique customer identifier"
+      name: "Customer company name"
+      email: "Primary billing contact email"
+      tier: "Customer classification tier (starter, growth, enterprise)"
+      status: "Account status (active, churned, suspended)"
+      created_at: "Signup timestamp"
+
+  plans:
+    description: "Catalog of commercial product plans and pricing tiers."
+    primary_key: "id"
+    columns:
+      id: "Plan identifier"
+      name: "Marketing plan name"
+      tier: "Plan tier tier (starter, growth, enterprise)"
+      monthly_fee: "Normalized monthly base cost"
+      billing_interval: "Interval cadence (monthly, annual)"
+      features_json: "JSON blob of feature entitlement flags"
+
+  subscriptions:
+    description: "Active and historical customer subscription contracts."
+    primary_key: "id"
+    columns:
+      id: "Subscription identifier"
+      customer_id: "Foreign key referencing customers.id"
+      plan_id: "Foreign key referencing plans.id"
+      status: "Subscription state (active, canceled, past_due, paused)"
+      mrr_amount: "Normalized Monthly Recurring Revenue contributed by this contract"
+      started_at: "Contract inception timestamp"
+      canceled_at: "Cancellation timestamp if churned"
+      current_period_start: "Start timestamp of active billing period"
+      current_period_end: "End timestamp of active billing period"
+
+  invoices:
+    description: "Generated customer invoices and settlement ledger."
+    primary_key: "id"
+    columns:
+      id: "Invoice identifier"
+      subscription_id: "Foreign key referencing subscriptions.id"
+      customer_id: "Foreign key referencing customers.id"
+      amount_due: "Total gross amount billed"
+      amount_paid: "Total net amount settled"
+      status: "Invoice settlement status (paid, open, void, uncollectible)"
+      due_date: "Calendar due date"
+      paid_at: "Settlement timestamp"
+      created_at: "Invoice generation timestamp"
+
+  usage_events:
+    description: "Telemetry usage metering events."
+    primary_key: "id"
+    columns:
+      id: "Event identifier"
+      customer_id: "Foreign key referencing customers.id"
+      subscription_id: "Foreign key referencing subscriptions.id"
+      event_type: "Telemetry metric kind (api_call, compute_hour, export_gb)"
+      quantity: "Units consumed"
+      recorded_at: "Timestamp event was logged"
+
+metrics:
+  active_mrr:
+    name: "active_mrr"
+    display_name: "Active MRR"
+    description: "Total Monthly Recurring Revenue derived from active subscription contracts."
+    formula: "SUM(subscriptions.mrr_amount)"
+    target_table: "subscriptions"
+    join_hints:
+      - "plans"
+    filter: "subscriptions.status = 'active'"
+    aggregation_type: "sum"
+    aliases:
+      - "mrr"
+      - "active mrr"
+      - "monthly recurring revenue"
+      - "recurring revenue"
+
+  churn_rate:
+    name: "churn_rate"
+    display_name: "Subscription Churn Rate (%)"
+    description: "Percentage of subscriptions that have transitioned to canceled state."
+    formula: "ROUND(COUNT(CASE WHEN subscriptions.status = 'canceled' THEN 1 END) * 100.0 / NULLIF(COUNT(*), 0), 2)"
+    target_table: "subscriptions"
+    aggregation_type: "ratio"
+    aliases:
+      - "churn"
+      - "churn rate"
+      - "cancellation rate"
+      - "subscription churn"
+
+  total_revenue:
+    name: "total_revenue"
+    display_name: "Total Settled Revenue"
+    description: "Total cash collected from settled invoices."
+    formula: "SUM(invoices.amount_paid)"
+    target_table: "invoices"
+    filter: "invoices.status = 'paid'"
+    aggregation_type: "sum"
+    aliases:
+      - "revenue"
+      - "collected revenue"
+      - "paid revenue"
+      - "total collections"
+
+  outstanding_amount:
+    name: "outstanding_amount"
+    display_name: "Outstanding Invoice Balance"
+    description: "Unpaid accounts receivable balance on open invoices."
+    formula: "SUM(invoices.amount_due - invoices.amount_paid)"
+    target_table: "invoices"
+    filter: "invoices.status = 'open'"
+    aggregation_type: "sum"
+    aliases:
+      - "outstanding balance"
+      - "unpaid invoices"
+      - "open invoice balance"
+      - "accounts receivable"
+      - "ar"
+
+  total_usage:
+    name: "total_usage"
+    display_name: "Total Usage Consumption"
+    description: "Aggregated meter units across telemetry streams."
+    formula: "SUM(usage_events.quantity)"
+    target_table: "usage_events"
+    aggregation_type: "sum"
+    aliases:
+      - "usage"
+      - "consumption"
+      - "total consumption"
+      - "usage volume"
+
+  active_customer_count:
+    name: "active_customer_count"
+    display_name: "Active Customer Count"
+    description: "Count of unique customer organizations currently in active status."
+    formula: "COUNT(DISTINCT customers.id)"
+    target_table: "customers"
+    filter: "customers.status = 'active'"
+    aggregation_type: "count_distinct"
+    aliases:
+      - "active customers"
+      - "customer count"
+      - "customer base"
+      - "active users"
+
+dimensions:
+  customer_tier:
+    name: "customer_tier"
+    display_name: "Customer Tier"
+    description: "Customer service tier category."
+    table: "customers"
+    column: "tier"
+    aliases:
+      - "tier"
+      - "customer tier"
+      - "account tier"
+      - "tier breakdown"
+
+  customer_status:
+    name: "customer_status"
+    display_name: "Customer Status"
+    description: "Customer account status."
+    table: "customers"
+    column: "status"
+    aliases:
+      - "customer status"
+      - "account status"
+
+  customer_name:
+    name: "customer_name"
+    display_name: "Customer Name"
+    description: "Organization name."
+    table: "customers"
+    column: "name"
+    aliases:
+      - "customer"
+      - "company"
+      - "account name"
+      - "customer name"
+
+  plan_name:
+    name: "plan_name"
+    display_name: "Plan Name"
+    description: "Commercial subscription plan name."
+    table: "plans"
+    column: "name"
+    aliases:
+      - "plan"
+      - "plan name"
+      - "product plan"
+
+  plan_tier:
+    name: "plan_tier"
+    display_name: "Plan Tier"
+    description: "Plan category tier."
+    table: "plans"
+    column: "tier"
+    aliases:
+      - "plan tier"
+      - "pricing tier"
+
+  billing_interval:
+    name: "billing_interval"
+    display_name: "Billing Cadence"
+    description: "Recurring invoicing interval (monthly, annual)."
+    table: "plans"
+    column: "billing_interval"
+    aliases:
+      - "cadence"
+      - "billing interval"
+      - "billing frequency"
+      - "interval"
+
+  subscription_status:
+    name: "subscription_status"
+    display_name: "Subscription Status"
+    description: "Lifecycle state of the subscription contract."
+    table: "subscriptions"
+    column: "status"
+    aliases:
+      - "subscription status"
+      - "sub status"
+
+  invoice_status:
+    name: "invoice_status"
+    display_name: "Invoice Status"
+    description: "Settlement status of an invoice."
+    table: "invoices"
+    column: "status"
+    aliases:
+      - "invoice status"
+      - "payment status"
+
+  event_type:
+    name: "event_type"
+    display_name: "Event Type"
+    description: "Usage telemetry category."
+    table: "usage_events"
+    column: "event_type"
+    aliases:
+      - "event type"
+      - "telemetry type"
+      - "usage type"
